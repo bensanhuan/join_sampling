@@ -2,6 +2,7 @@ import re
 import glob
 import pandas as pd
 from loguru import logger
+import matplotlib.pyplot as plt
 #用于sql解析的字符串常量
 s_select = 'select'
 s_from = 'from'
@@ -26,27 +27,10 @@ s_not_like = 'not_like'
 s_in = 'in'
 
 #从csv采样的比例，将大表的数据行数采样到500,000的样子
-preSamplePercentages = {
-    'cast_info': 0.0135,
-    'movie_info': 0.03,
-    'movie_keyword': 0.11,
-    'name': 0.12,
-    'char_name': 0.16,
-    'person_info': 0.175,
-    'movie_companies': 0.19,
-    'title': 0.2,
-    'move_info_idx':0.38,
-    'aka_name': 0.55
-}
 
 
-data_loc = 'data/'
-pkl_loc = data_loc + 'pkl/'
-#载入pkl数据
-def load_pickle(name):
-    """ Load the given CSV file only """
-    df = pd.read_pickle(pkl_loc + name + '.pkl')
-    return df
+
+
 
 #给一个parse结果，返回表名映射 
 def GetTableMapping(p):
@@ -73,46 +57,10 @@ def IsJoinDes(x):
 def isAndOr(x):
     assert isinstance(x, str)
     return x == s_and or x == s_or
-
-#将job查询转换成不带分号的一行字符串写入query_sql_processed
-def processJOBsql():
-    outFile = "./data/query_sql_processed"
-    sqlFilePath = "./data/join-order-benchmark/"
-    sqlFileMatch = sqlFilePath + "/[0-9]*.sql"
-    files = glob.glob(sqlFileMatch)
-    with open(outFile, 'w') as outfile:
-        for file in files:
-            with open(file, 'r') as f:
-                sql = f.read().replace("\n", " ").replace(";","")
-                outfile.write(sql+"\n")  
-
-#将csv原数据导入pkl数据，由于数据过多，先提前进行采样
-def loadPklWithSample():
-    #load csv
-    #从csv_schema.txt解析csv文件格式
-    columns = dict()
-    with open('./data/csv_schema.txt', 'r') as f:
-        lines = f.readlines()
-        for l in lines:
-            l = l.replace('\n', '').split(',')
-            columns[l[0]] = l[1:]
-    logger.info("columns: {}", columns)
-    csvPath = "./data/csv/"
-    pklPath = "./data/pkl/"
-    for k, v in columns.items():
-        logger.info("begin to create pkl for {}", k)
-        df = pd.read_csv(csvPath + k + '.csv', header = None, escapechar = '\\', names = v)
-        if k in preSamplePercentages.keys():
-            #执行预采样 
-            logger.info("orgin size: {} ,sample goal size: {}", df.shape[0],int(preSamplePercentages[k] * df.shape[0]))
-            df = df.sample(int(preSamplePercentages[k] * df.shape[0]))
-        #存储
-        df.to_pickle(pklPath + k + '.pkl')
-        logger.info("{}.pkl has saved", k)
+        
 
 if __name__ == "__main__":
-    loadPklWithSample()
-        
+    pass        
     
     
 
