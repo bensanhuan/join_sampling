@@ -2,6 +2,7 @@
 TODO：
 
 数据准备：
+
 [√]job-sql语句集合到一张表
 
 [√] 生成完整的db表对应dataframe
@@ -10,6 +11,7 @@ TODO：
 
 算法开发：
 1. Class QueryGraph：
+
 [√] 从sql中构造joinCondition
 
 [√] 逻辑优化joinCodition，并可视化queryGraph检查是不是都是树状
@@ -21,6 +23,7 @@ TODO：
 [ ] fix原来的逻辑，把单表选择做成filter，不提前执行
 
 2. IndexSample算法执行函数：
+
 [ ] 实现方案一采样过程
 
 [ ] 构建filed和统计维度的映射关系（n:1)，实现merge算法，快速计算将两个统计信息连接后的统计信息
