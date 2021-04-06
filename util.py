@@ -26,11 +26,6 @@ s_like = 'like'
 s_not_like = 'not_like'
 s_in = 'in'
 
-#从csv采样的比例，将大表的数据行数采样到500,000的样子
-
-
-
-
 
 #给一个parse结果，返回表名映射 
 def GetTableMapping(p):

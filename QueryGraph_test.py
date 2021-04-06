@@ -30,16 +30,22 @@ def test_joinConditionGen():
             qg = QueryGraph(sql, True)            
 
 def test_singleTableSelectPerform():
+    logger.add("test_log")
     sqls = list()
     with open("./data/sqls.pkl", 'rb') as f:
         sqls = pickle.load(f)
-    g = QueryGraph(sqls['6f'])
-    return
+    logger.debug("sqls number {}", len(sqls))
     for k, sql in sqls.items():
-        logger.debug("test for sql: {}\n", k)
+        #sql = sqls['30a']
+        logger.debug("test for sql: {}\n sql:{}\n", k, sql)
         queryg = QueryGraph(sql)
+        for tname, relation in queryg.data.items():
+            logger.debug("perform select for {}", tname)
+            tmpdf = performSelect(queryg, tname, relation.df)
+            logger.debug("size {}, {}", relation.df.shape[0], tmpdf.shape[0])
+        return
         
         
 
 if __name__ == "__main__":
-    test_joinConditionGen()
+    test_singleTableSelectPerform()
