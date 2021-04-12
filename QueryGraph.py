@@ -16,7 +16,7 @@ class QueryGraph:
         tableNames = []
         for k, _ in self.tableMapping.items():
             tableNames.append(k)
-        logger.debug("tablenames: {}", tableNames)
+        logger.debug("tableNames: {}", tableNames)
         tableNames = list(set(tableNames))
         self.tableNames = tableNames
         
@@ -111,6 +111,17 @@ class QueryGraph:
             else:
                 return value.split('.')[0]
 
+    def getNeighbors(self, tnames):
+        assert isinstance(tnames, frozenset)
+        neighbors = list()
+        for tname in tnames:
+            assert tname in self.joinCondition.keys()
+            for k, v in self.joinCondition[tname].items():
+                if len(v) > 0 and k not in tnames and k not in neighbors:
+                    neighbors.append(k)
+        return neighbors
+        
+
 class Relation:
     def __init__(self, relationName):
         self.relationName = relationName
@@ -124,10 +135,13 @@ class Relation:
 
 def performSelect(G, tablename, df):
     assert tablename in G.data.keys()
+    beforeSize = df.shape[0]
     if tablename not in G.selectDes.keys():
+        logger.debug("performSelect on {}, beforeSize: {}, afterSize: {}\n", tablename, beforeSize, df.shape[0])
         return df
     for desc in G.selectDes[tablename]:
         df = _performSelect(df, desc)
+        logger.debug("performSelect on {}, beforeSize: {}, afterSize: {}\n", tablename, beforeSize, df.shape[0])
     return df
 
 def _performSelect(df, desc):
@@ -183,6 +197,8 @@ def _performSelect(df, desc):
                     return df[df[field] != value[1][util.s_literal]]
                 return df[df[field] != value[1]]
             elif key == util.s_gt:
+                if isinstance(value[1], dict):
+                    return df[df[field] > value[1][util.s_literal]]
                 return df[df[field] > value[1]]
             elif key == util.s_lt:
                 if isinstance(value[1], dict):
@@ -195,9 +211,16 @@ def _performSelect(df, desc):
                         inlist = [inlist]
                     return df[df[field].isin(inlist)]
                 return df[df[field].isin(value[1])]
+            elif key == util.s_gte:
+                if isinstance(value[1], dict):
+                    return df[df[field] >= value[1][util.s_literal]]
+                return df[df[field] >= value[1]]
+            elif key == util.s_lte:
+                if isinstance(value[1], dict):
+                    return df[df[field] <= value[1][util.s_literal]]
+                return df[df[field] <= value[1]]
             else:
                 logger.error("Unkown sql parse slice: {}, {}", key, value)
 
 
-    
-        
+       
