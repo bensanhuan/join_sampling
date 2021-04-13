@@ -12,6 +12,7 @@ import time
 #计算一个sql语句中间结果的真实基数
 #先对单表数据执行单表选择条件，然后留下需要连接的属性列
 MaxJoinSize = 6
+MAXN = 100
 
 files = os.listdir("./data/realCardinality")
 logger.info("already has {}\n", files)
@@ -121,11 +122,11 @@ def caculateRealCardinality1_1(prefix ,sql):
         logger.info("already caculated\n")
         return
 
-    ##内存hold不住的查询先跳过：
-    #skipSqls = ["17a", "17b", "17c", "17d", "17e", "17f", "16a", "16b", "16c", "16d"]
-    # if prefix in skipSqls:
-    #     logger.info("skip {}\n", prefix)
-    #     return
+    #内存hold不住的查询先跳过：
+    skipSqls = ["17a", "17b", "17c", "17d", "17e", "17f", "16a", "16b", "16c", "16d"]
+    if prefix in skipSqls:
+        logger.info("skip {}\n", prefix)
+        return
     
     g = QueryGraph(sql)
     relationData = dict()
@@ -168,8 +169,8 @@ def caculateRealCardinality1_1(prefix ,sql):
     for k in IntermediateList:
         logger.debug("caculateRealCardinality realCardinality of {}: {}\n", k, realCardinality[k])
 
-    # with open('./data/realCardinality/'+prefix+'.realCardinality', 'wb') as f:
-    #     pickle.dump(realCardinality, f)
+    with open('./data/realCardinality/'+prefix+'.realCardinality', 'wb') as f:
+        pickle.dump(realCardinality, f)
 
 
 
@@ -197,8 +198,12 @@ def dfs(s_in, s_in_data, g, relationData, realCardinality, IntermediateList):
             logger.debug("join {} with {} on {}", s_in, nei, fields)
             if fields[0] == 'id':
                 s_out_data = s_in_data.join(relationData[nei].set_index(nei + '.' + fields[1]), on = (r + '.' + fields[0]), how = 'inner')
+                #s_out_data = pd.merge(s_in_data, relationData[nei], left_on=r + '.' + fields[0], right_on=nei + '.' + fields[1], how = "inner")
+                #s_out_data = pd.concat()
+                #pd.concat(df1.reset_index(drop = True), df2.reindex(df1['a'].values).reset_index(drop = Ture),axis=1)
             else:                
                 s_out_data = relationData[nei].join(s_in_data.set_index(r + '.' + fields[0]), on=(nei + '.' + fields[1]), how = 'inner')
+                # s_out_data = pd.merge(s_in_data, relationData[nei], left_on=r + '.' + fields[0], right_on=nei + '.' + fields[1], how = "inner")
             logger.debug("   size: {}\n", s_out_data.shape[0])
             realCardinality[s_out] = s_out_data.shape[0]
             IntermediateList.append(s_out)
@@ -209,7 +214,84 @@ def dfs(s_in, s_in_data, g, relationData, realCardinality, IntermediateList):
     gc.collect()
 
 
+# def caculateRealCardinality2_1(prefix, sql):
+#     #检查是否已经计算过：
+#     if prefix+'.realCardinality' in files:
+#         logger.info("already caculated\n")
+#         return
 
+#     #获取选择执行后的单表数据
+#     g = QueryGraph(sql)
+#     relationData = dict()
+#     for k in g.data.keys():
+#         relationData[k] = g.data[k].df
+#     for k in relationData.keys():
+#         relationData[k] = performSelect(g, k, relationData[k])
+#     del g.data
+#     gc.collect()
+#     #获取属性映射,1 - n
+#     filedMappings = getFieldMapping(g)
+#     #转化表数据，转化为多维向量和计数器的dataframe
+#     for k in relationData.keys():
+#         relationData[k] = relationData[k][filedMappings[k].keys()]    #只保留连接属性
+#         relationData[k] = relationData[k].rename(columns = filedMappings[k]) #重命名
+#         cnt = dict()
+#         tmplist = list(relationData[k].values())
+#         m = relationData[k].shape[1]
+#         for val in relationData[k].iterrows():
+#             if val[0:m] not in cnt.keys():
+#                 cnt[val[0:m]] = 1
+#             else cnt[val[0:m]] = cnt[val[0:m]] + 1
+#         relationData[k].insert(0, 0, 1)#增加0维，代表计数，初始全为1
+#     #枚举中间结果:
+#     realCardinality = dict()
+#     IntermediateSet = set()
+#     for k in relationData.keys():
+#         realCardinality[frozenset([k])] = relationData[k][0].sum()
+#         IntermediateSet.add(frozenset[k])    
+#     for k in relationData.keys():
+#         pass
+
+# def dfsFor2_1(s_in, s_in_data, g, relationData, realCardinality, IntermediateSet):
+#     assert isinstance(realCardinality, dict) and isinstance(IntermediateSet, set)
+#     neighbors = g.getNeighbors(s_in)
+#     for nei in neighbors:
+#         s_out = set(s_in)
+#         s_out.add(nei)
+#         s_out = frozenset(s_out)
+#         if s_out in IntermediateSet:
+#             continue
+#         joinFiled = [x for x in relationData[nei].columns if x in s_in_data.columns]
+#         assert len(joinFiled) == 1    
+#         joinFiled = joinFiled[0]
+#         df1, df2 = (s_in_data, relationData[nei]) if s_in_data.shape[0] < relationData[nei].shape[0] else (relationData[nei], s_in_data)
+#         for val in df1.itertuples():
+#             dftmp = df2[df2[joinFiled] == val[joinFiled]]
+#             dftmp[0] = dftmp[0] * val[0]
+
+        
+
+    
+def getFieldMapping(g):
+    fieldMappings = dict()
+    for tname in g.tableNames:
+        fieldMappings[tname] = dict()
+    #遍历边，为边上属性做映射
+    now = 1
+    for tname1 in g.tableNames:
+        for tname2 in g.tableNames:
+            for edge in g.joinCondition[tname1][tname2]:
+                f1 = edge[0], f2 = edge[1]
+                x, y = f1 in fieldMappings[tname1].keys(), f2 in fieldMappings[tname2].keys()
+                if not x and not y:
+                    fieldMappings[tname1][f1], fieldMappings[tname2][f2] = now, now
+                    now = now + 1
+                elif x and not y:
+                    fieldMappings[tname2][f2] = fieldMappings[tname1][f1]
+                elif not x and y:
+                    fieldMappings[tname1][f1] = fieldMappings[tname2][f2]
+    return fieldMappings
+    
 
 
 
