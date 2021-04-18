@@ -27,7 +27,22 @@ def test_joinConditionGen():
             logger.debug("sql: {}", sql)
             logger.info("begin draw for {}", sql)
             sql = sql.replace(';','')
-            qg = QueryGraph(sql, True)            
+            qg = QueryGraph(sql, True)  
+
+
+def test_getNeighbors():
+    logger.add("test_log")
+    sqls = list()
+    with open("./data/sqls.pkl", 'rb') as f:
+        sqls = pickle.load(f)
+    logger.debug("sqls number {}", len(sqls))
+    for k, sql in sqls.items():
+        logger.debug("test for sql: {}\n sql:{}\n", k, sql)
+        g = QueryGraph(sql, True)
+        for tname in g.tableNames:
+            r = g.getNeighbors(tname)
+            logger.info("{} has neighbors:{}\n", tname, r)
+        return
 
 def test_singleTableSelectPerform():
     logger.add("test_log")
