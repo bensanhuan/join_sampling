@@ -54,6 +54,17 @@ def IsJoinDes(x):
 def isAndOr(x):
     assert isinstance(x, str)
     return x == s_and or x == s_or
+
+def dropPrefix(df):
+    filedNames = df.columns.str.split('.').tolist()
+    renameDict = dict()
+    for v in filedNames:
+        renameDict[v[0] + '.' + v[1]] = v[1]
+    df = df.rename(columns = renameDict)
+    return df
+
+def addPrefix(df, pre):
+    return df.add_prefix(pre + '.')
         
 
 if __name__ == "__main__":

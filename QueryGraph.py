@@ -1,10 +1,10 @@
+# -*- coding: utf-8 -*-
 from moz_sql_parser import parse
 import util
 from loguru import logger
 import data_process
 import pandas as pd
 #FIXME: fixme usage sample
-
 #是否采用预采样后的pickel
 useSampledPkl = False
 #QueryGraph类：内部加载原表数据，解析sql语句生成graph。对外部提供join关系结构，原数据，对一张表的子集执行单表选择的能力。
@@ -90,7 +90,16 @@ class QueryGraph:
                 if key == util.s_eq and util.IsJoinDes(value):
                     continue
                 else:
-                    tname = self._GetTableNameFromSelect({key:value})        
+                    tname = self._GetTableNameFromSelect({key:value})
+        #整理select属性集合：
+        self.selectFileds = dict()
+        for tname in self.tableNames:
+            self.selectFileds[tname] = list()
+        for k, v in self.selectDes.items():
+            for desc in v:
+                self.selectFileds[self._GetTableNameFromSelect(desc)] = self.selectFileds[self._GetTableNameFromSelect(desc)] + self._getSelectFileds(desc)
+        for tname in self.tableNames:
+            self.selectFileds[tname] = list(set(self.selectFileds[tname]))
 
     def _addEdge(self, joindes):
         t1, t2 = joindes[0].split('.')[0],joindes[1].split('.')[0]
@@ -103,6 +112,7 @@ class QueryGraph:
         assert len(condition) > 0
         if isinstance(condition, list):
             return self._GetTableNameFromSelect(condition[0])
+        
         for key, value in condition.items():
             if util.isAndOr(key):
                 return self._GetTableNameFromSelect(value)
@@ -120,8 +130,25 @@ class QueryGraph:
                 if len(v) > 0 and k not in tnames and k not in neighbors:
                     neighbors.append(k)
         return neighbors
-        
 
+    def _getSelectFileds(self, desc):
+        assert isinstance(desc, dict)
+        results = list()
+        logger.debug("_getSelectFileds of {}", desc)
+        for k, v in desc.items():
+            if k == util.s_and or k == util.s_or:
+                for subDes in v:
+                    results = results + self._getSelectFileds(subDes)
+            else:
+                field = ''
+                if isinstance(v, list):
+                    field = v[0].split('.')[1]
+                else:
+                    field = v.split('.')[1]
+                results.append(field)
+        #去重
+        results = list(set(results))
+        return results
 class Relation:
     def __init__(self, relationName):
         self.relationName = relationName
@@ -145,7 +172,7 @@ def performSelect(G, tablename, df):
     return df
 
 def _performSelect(df, desc):
-    isinstance(desc, dict)
+    assert isinstance(desc, dict)
     logger.debug("desc: {}", desc)
     for key, value in desc.items():
         if key == util.s_and:
@@ -176,7 +203,6 @@ def _performSelect(df, desc):
                     l, r = min(value[1], value[2]), max(value[1], value[2])
                 return df[ (df[field] < r) & (df[field] > l)]
             elif key == util.s_like:
-            #todo: continue code
                 pattern = value[1][util.s_literal].replace("%", ".*")
                 return df[df[field].str.match(pattern) & df[field].notna()]
             elif key == util.s_not_like:

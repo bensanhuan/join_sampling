@@ -5,6 +5,9 @@ import networkx as nx
 import glob
 import pandas as pd
 import pickle
+import os
+import re
+import math
 
 preSamplePercentages = {
     'cast_info': 0.0135,
@@ -22,13 +25,17 @@ preSamplePercentages = {
 
 pkl_sampled_loc = 'data/pkl/'
 pkl_unSampled_loc = 'data/pkl-unSample/'
+unSampledRelationPkl = dict()
 #载入pkl数据
 def load_pickle(name, useSampledPkl):
     """ Load the given CSV file only """
+    global unSampledRelationPkl
     if useSampledPkl:
         df = pd.read_pickle(pkl_sampled_loc + name + '.pkl')
     else:
-        df = pd.read_pickle(pkl_unSampled_loc + name + '.pkl')
+        if name not in unSampledRelationPkl.keys():
+            unSampledRelationPkl[name] = pd.read_pickle(pkl_unSampled_loc + name + '.pkl')
+        df = unSampledRelationPkl[name]
     return df
 
 #将csv原数据导入pkl数据，由于数据过多，先提前进行采样
@@ -137,6 +144,50 @@ def processJOBsql():
     with open('./data/sqls.pkl', 'wb') as f:
         pickle.dump(sqlsPkl, f)
 
+#计算estimateCardinality和realCardinality的误差并可视化
+def DrawResults(MaxJoinSize, sampleSize, budget, ReSampleThreshold):
+    pattern = '_maxJoinSize_' + str(MaxJoinSize) + '_sampleSize_' + str(sampleSize) + '_budget_' + str(budget) + '_reSampleThreshold_' + str(ReSampleThreshold)
+    esfiles = os.listdir('./data/estimateCardinality/')
+    realfiles = os.listdir('./data/realCardinality/')
+    realCar, esCar = dict(), dict()
+    for f in esfiles:
+        #logger.debug("{} {}", f, pattern)
+        if re.search(pattern, f):
+            with open('./data/estimateCardinality/' + f, 'rb') as ff:
+                esCar[f.split('_')[0]] = pickle.load(ff)
+    for f in realfiles:
+        with open('./data/realCardinality/'+f, 'rb') as ff:
+            realCar[f.split('.')[0]] = pickle.load(ff)
+    #logger.debug("esCar keys: {}\n realCar keys(): {}", esCar.keys(), realCar.keys())
+
+    ratio = dict()
+    for i in range(1, MaxJoinSize + 1):
+        ratio[i] = list()
+    for k in realCar.keys():
+        if k == '16d':
+            continue
+        assert k in esCar.keys()
+        for y in realCar[k].keys():
+            x = round(esCar[k][y]/ realCar[k][y], 2) if realCar[k][y] != 0 else round(esCar[k][y], 2)
+            ratio[len(y)].append(x)
+    ratioList = [ratio[i] for i in range(1, MaxJoinSize + 1)]
+    for i in range(len(ratioList)):
+        for j in range(len(ratioList[i])):
+            if ratioList[i][j] != 0:
+                ratioList[i][j] = math.log(ratioList[i][j], 10)
+    labels = [x for x in range(1, MaxJoinSize + 1)]
+    plt.clf()
+    plt.figure(figsize=(10,5))
+    plt.title(" index-based (no budget) ", fontsize = 20)
+    plt.boxplot(ratioList, labels=labels)
+    plt.grid(axis="y")
+    plt.show()
+
+    #return ratio
+    
+        
+
 
 if __name__ == "__main__":
-    processJOBsql()          
+    #processJOBsql()          
+    DrawResults(6, 1000,10000000000000,100)
