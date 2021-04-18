@@ -4,3 +4,5 @@ __pycache__
 .DS_Store
 test_log
 logs/
+timetest/
+*pyc
