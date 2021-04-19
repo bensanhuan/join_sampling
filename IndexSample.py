@@ -24,7 +24,7 @@ def IndexSample(sql, budget, sampleSize):
     samples = dict()
     estimateCardinality = dict()
     #为每个表只留下筛选相关和连接相关属性：
-    Fileds = onlyFilterJoinFileds(g)
+    Fileds = util.onlyFilterJoinFileds(g)
     RelationData = dict()
     for tname in g.tableNames:
         RelationData[tname] = g.data[tname].df[Fileds[tname]]
@@ -120,18 +120,6 @@ def dfs(s_in, s_in_data, g, RelationData, sampleSize, estimateCardinality, Inter
     gc.collect()
 
 
-def onlyFilterJoinFileds(g):
-    fileds = dict()
-    for tname1 in g.tableNames:
-        fileds[tname1] = list()
-        for tname2 in g.tableNames:
-            for val in g.joinCondition[tname1][tname2]:
-                fileds[tname1].append(val[0])
-    for tname in g.tableNames:
-        fileds[tname] = fileds[tname] + g.selectFileds[tname]
-    for tname in g.tableNames:
-        fileds[tname] = list(set(fileds[tname]))
-    return fileds
 
 def estimateSingle(tableSize, sampleSize, samplesNum):
     #为单表估算基数

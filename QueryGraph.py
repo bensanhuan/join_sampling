@@ -164,16 +164,14 @@ def performSelect(G, tablename, df):
     assert tablename in G.data.keys()
     beforeSize = df.shape[0]
     if tablename not in G.selectDes.keys():
-        logger.debug("performSelect on {}, beforeSize: {}, afterSize: {}\n", tablename, beforeSize, df.shape[0])
         return df
     for desc in G.selectDes[tablename]:
         df = _performSelect(df, desc)
-        logger.debug("performSelect on {}, beforeSize: {}, afterSize: {}\n", tablename, beforeSize, df.shape[0])
     return df
 
 def _performSelect(df, desc):
     assert isinstance(desc, dict)
-    logger.debug("desc: {}", desc)
+    #logger.debug("desc: {}", desc)
     for key, value in desc.items():
         if key == util.s_and:
             #递归结果做交集
@@ -215,7 +213,7 @@ def _performSelect(df, desc):
                 return df[df[field].notna()]
             elif key == util.s_eq:
                 if isinstance(value[1], dict):
-                    logger.debug("value:{}", value)
+                    #logger.debug("value:{}", value)
                     return df[df[field] == value[1][util.s_literal]]
                 return df[df[field] == value[1]]
             elif key == util.s_neq:

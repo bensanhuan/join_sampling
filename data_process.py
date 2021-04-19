@@ -184,10 +184,49 @@ def DrawResults(MaxJoinSize, sampleSize, budget, ReSampleThreshold):
     plt.show()
 
     #return ratio
-    
+
+def DrawTreeResults(MaxJoinSize, budget):
+    pattern = '_budget_' + str(budget) 
+    esfiles = os.listdir('./data/treeEstimateCardinality/')
+    realfiles = os.listdir('./data/realCardinality/')
+    realCar, esCar = dict(), dict()
+    for f in esfiles:
+        #logger.debug("{} {}", f, pattern)
+        if re.search(pattern, f):
+            with open('./data/treeEstimateCardinality/' + f, 'rb') as ff:
+                esCar[f.split('_')[0]] = pickle.load(ff)
+    for f in realfiles:
+        with open('./data/realCardinality/'+f, 'rb') as ff:
+            realCar[f.split('.')[0]] = pickle.load(ff)
+    #logger.debug("esCar keys: {}\n realCar keys(): {}", esCar.keys(), realCar.keys())
+
+    ratio = dict()
+    for i in range(1, MaxJoinSize + 1):
+        ratio[i] = list()
+    for k in realCar.keys():
+        if k == '16d':
+            continue
+        assert k in esCar.keys()
+        for y in realCar[k].keys():
+            x = round(esCar[k][y]/ realCar[k][y], 2) if realCar[k][y] != 0 else round(esCar[k][y], 2)
+            ratio[len(y)].append(x)
+    ratioList = [ratio[i] for i in range(1, MaxJoinSize + 1)]
+    for i in range(len(ratioList)):
+        for j in range(len(ratioList[i])):
+            if ratioList[i][j] != 0:
+                ratioList[i][j] = math.log(ratioList[i][j], 10)
+    labels = [x for x in range(1, MaxJoinSize + 1)]
+    plt.clf()
+    plt.figure(figsize=(10,5))
+    plt.title(" tree-index-based (" +str(budget) + " budget) ", fontsize = 20)
+    plt.boxplot(ratioList, labels=labels)
+    plt.grid(axis="y")
+    plt.show()
+
         
 
 
 if __name__ == "__main__":
     #processJOBsql()          
-    DrawResults(6, 1000,10000000000000,100)
+    #DrawResults(6, 1000,10000000000000,100)
+    DrawTreeResults(6, 100000)

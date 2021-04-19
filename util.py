@@ -63,6 +63,20 @@ def dropPrefix(df):
     df = df.rename(columns = renameDict)
     return df
 
+def onlyFilterJoinFileds(g):
+    fileds = dict()
+    for tname1 in g.tableNames:
+        fileds[tname1] = list()
+        for tname2 in g.tableNames:
+            for val in g.joinCondition[tname1][tname2]:
+                fileds[tname1].append(val[0])
+    for tname in g.tableNames:
+        fileds[tname] = fileds[tname] + g.selectFileds[tname]
+    for tname in g.tableNames:
+        fileds[tname] = list(set(fileds[tname]))
+    return fileds
+
+
 def addPrefix(df, pre):
     return df.add_prefix(pre + '.')
         
