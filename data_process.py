@@ -27,7 +27,7 @@ pkl_sampled_loc = 'data/pkl/'
 pkl_unSampled_loc = 'data/pkl-unSample/'
 unSampledRelationPkl = dict()
 #载入pkl数据
-def load_pickle(name, useSampledPkl):
+def load_pickle(name, useSampledPkl=False):
     """ Load the given CSV file only """
     global unSampledRelationPkl
     if useSampledPkl:
@@ -188,7 +188,7 @@ def DrawResults(MaxJoinSize, sampleSize, budget, ReSampleThreshold):
 def DrawTreeResults(MaxJoinSize, budget):
     pattern = '_budget_' + str(budget) 
     esfiles = os.listdir('./data/treeEstimateCardinality/')
-    realfiles = os.listdir('./data/realCardinality/')
+    realfiles = os.listdir('./data/DBrealCardinality/')
     realCar, esCar = dict(), dict()
     for f in esfiles:
         #logger.debug("{} {}", f, pattern)
@@ -196,7 +196,7 @@ def DrawTreeResults(MaxJoinSize, budget):
             with open('./data/treeEstimateCardinality/' + f, 'rb') as ff:
                 esCar[f.split('_')[0]] = pickle.load(ff)
     for f in realfiles:
-        with open('./data/realCardinality/'+f, 'rb') as ff:
+        with open('./data/DBrealCardinality/'+f, 'rb') as ff:
             realCar[f.split('.')[0]] = pickle.load(ff)
     #logger.debug("esCar keys: {}\n realCar keys(): {}", esCar.keys(), realCar.keys())
 
@@ -204,29 +204,46 @@ def DrawTreeResults(MaxJoinSize, budget):
     for i in range(1, MaxJoinSize + 1):
         ratio[i] = list()
     for k in realCar.keys():
-        if k == '16d':
-            continue
         assert k in esCar.keys()
         for y in realCar[k].keys():
-            x = round(esCar[k][y]/ realCar[k][y], 2) if realCar[k][y] != 0 else round(esCar[k][y], 2)
+            if y not in esCar[k].keys():
+                continue
+            realv, esv = realCar[k][y], round(esCar[k][y])
+            if esv == 0 and realv == 0:
+                x = 1
+            elif esv == 0:
+                x = realv
+            elif realv == 0:
+                x = esv
+            else:
+                x = esv / realv
             ratio[len(y)].append(x)
     ratioList = [ratio[i] for i in range(1, MaxJoinSize + 1)]
     for i in range(len(ratioList)):
         for j in range(len(ratioList[i])):
             if ratioList[i][j] != 0:
                 ratioList[i][j] = math.log(ratioList[i][j], 10)
+
     labels = [x for x in range(1, MaxJoinSize + 1)]
-    plt.clf()
-    plt.figure(figsize=(10,5))
-    plt.title(" tree-index-based (" +str(budget) + " budget) ", fontsize = 20)
-    plt.boxplot(ratioList, labels=labels)
+    #plt.clf()
+    plt.figure(figsize=(5,8))
+    plt.title(" tree-index-based (" +str(int(budget/1000)) + "K budget) ", fontsize = 15)
+    plt.boxplot(ratioList, labels=labels, showfliers=True)
     plt.grid(axis="y")
     plt.show()
 
+def move_data():
+    skipSqls = ["17a", "17b", "17c", "17d", "17e", "17f", "16a", "16b", "16c", "16d"]
+    for k in skipSqls:
+        with open("./data/DBrealCardinality/" + k + ".DBrealCardinality", 'rb') as f:
+            x = pickle.load(f)
+            with open("./data/realCardinality/" + k + ".realCardinality", 'wb') as ff:
+                pickle.dump(x, ff)
         
 
 
 if __name__ == "__main__":
+    #loadPklWithoutSample()
     #processJOBsql()          
     #DrawResults(6, 1000,10000000000000,100)
     DrawTreeResults(6, 100000)

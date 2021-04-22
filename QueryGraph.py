@@ -199,14 +199,19 @@ def _performSelect(df, desc):
                     l, r = min(value[1][util.s_literal], value[2][util.s_literal]), max(value[1][util.s_literal], value[2][util.s_literal])
                 else:
                     l, r = min(value[1], value[2]), max(value[1], value[2])
-                return df[ (df[field] < r) & (df[field] > l)]
+                return df[ (df[field] <= r) & (df[field] >= l)]
             elif key == util.s_like:
                 pattern = value[1][util.s_literal].replace("%", ".*")
-                return df[df[field].str.match(pattern) & df[field].notna()]
+                pattern = pattern.replace("(", "\(")
+                pattern = pattern.replace(")", "\)")
+                return df[(df[field].str.match(pattern)) & (df[field].notna())]
             elif key == util.s_not_like:
                 pattern = value[1][util.s_literal].replace("%", ".*")
-                pattern = '^((?!' + pattern + ').)*$'
-                return df[df[field].str.match(pattern) & df[field].notna()]
+                #pattern = '^((?!' + pattern + ').)*$'
+                pattern = pattern.replace("(", "\(")
+                pattern = pattern.replace(")", "\)")
+                #return df[df[field].str.match(pattern) & df[field].notna()]
+                return df[(~((df[field].str.match(pattern)) & df[field].notna())) & df[field].notna()]
             elif key == util.s_is_null:
                 return df[df[field].isna()]
             elif key == util.s_is_not_null:
@@ -218,8 +223,8 @@ def _performSelect(df, desc):
                 return df[df[field] == value[1]]
             elif key == util.s_neq:
                 if isinstance(value[1], dict):
-                    return df[df[field] != value[1][util.s_literal]]
-                return df[df[field] != value[1]]
+                    return df[(df[field] != value[1][util.s_literal]) & (df[field].notna())]
+                return df[df[field] != value[1] & df[field].notna()]
             elif key == util.s_gt:
                 if isinstance(value[1], dict):
                     return df[df[field] > value[1][util.s_literal]]

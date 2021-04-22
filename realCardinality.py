@@ -15,7 +15,7 @@ MaxJoinSize = 6
 MAXN = 100
 
 files = os.listdir("./data/realCardinality")
-logger.info("already has {}\n", files)
+#logger.info("already has {}\n", files)
 
 def caculateRealCardinality(prefix ,sql):
     #检查是否已经计算过：
@@ -116,9 +116,9 @@ def caculateRealCardinality(prefix ,sql):
     
     
 #优化内存占用
-def caculateRealCardinality1_1(prefix ,sql):
+def caculateRealCardinality1_1(prefix ,sql, recal = False):
     #检查是否已经计算过：
-    if prefix+'.realCardinality' in files:
+    if prefix+'.realCardinality' in files and recal == False:
         logger.info("already caculated\n")
         return
 
@@ -171,6 +171,7 @@ def caculateRealCardinality1_1(prefix ,sql):
 
     with open('./data/realCardinality/'+prefix+'.realCardinality', 'wb') as f:
         pickle.dump(realCardinality, f)
+    return realCardinality
 
 
 
@@ -303,11 +304,27 @@ if __name__ == "__main__":
     sqls = dict()
     with open("./data/sqls.pkl", 'rb') as f:
         sqls = pickle.load(f)
-    
+
+    doneList = os.listdir("./data/DBrealCardinality")
+    for i in range(len(doneList)):
+        doneList[i] =doneList[i].split(".")[0]
+    skipSqls = ["17a", "17b", "17c", "17d", "17e", "17f", "16a", "16b", "16c", "16d"]
+
     for k, v in sqls.items():
+        if k in doneList or k in skipSqls:
+            continue
         logger.info("caculateRealCardinality for {} begin...\n", k)
         #caculateRealCardinality(k, v)
-        caculateRealCardinality1_1(k, v)
+        pandasCar = caculateRealCardinality1_1(k, v, True)
+        
+        # with open("./data/DBrealCardinality/" + k + ".DBrealCardinality", 'rb') as f:
+        #     DBcar = pickle.load(f)
+        
+        # for key in pandasCar.keys():
+        #     assert key in DBcar.keys()
+        #     if DBcar[key] != pandasCar[key]:
+        #         logger.warning("{} {} DB:{} Pandas:{}", k, key, DBcar[key], pandasCar[key])
+
         gc.collect()
         logger.info("caculateRealCardinality for {} done\n", k)
         

@@ -10,14 +10,13 @@ tableBudget, RelationData = dict(), dict()
 filter = dict()
 maxJoinSize = 6
 def TreeIndexSample(sql, budget):
+    #全局变量导入清空
     global samples, estimateCardinality, tableBudget, RelationData, filter
     samples.clear(), estimateCardinality.clear(), tableBudget.clear(), RelationData.clear()
     filter.clear()
+    
+    #初始化，预处理数据
     g = QueryGraph(sql)
-    root = ExploreOptimizerRoot_1(g)
-    tableBudget = distributeBudget_1(g, budget)
-
-    #预处理数据
     Fileds = util.onlyFilterJoinFileds(g)
     for tname in g.tableNames:
         RelationData[tname] = g.data[tname].df[Fileds[tname]]
@@ -30,23 +29,21 @@ def TreeIndexSample(sql, budget):
     tableBudget = distributeBudget_1(g, budget)
     dfsSampleSingle(root, g)
 
-    #自底向上计算dfs计算所有中间结果
-    for tname in g.tableNames:
-        pass
-        #dfsCaculateJoin(frozenset([tname]), samples[frozenset([tname])], g)
-    
-    
-    #logger.debug("filter:{}\n estimateSingle:{}", filter, estimateCardinality)
+    #计算所有中间结果，每个中间结果映射为一课子树，以深度最浅的为起点计算
     dfs(root, g)
-
+    #对非根节点的单表estimateCardinality更新
+    for tname in g.tableNames:
+        if tname != root:
+            estimateCardinality[frozenset([tname])] = filter[tname] * RelationData[tname].shape[0]
     return estimateCardinality
 
 def dfs(root, g, fa = None):
     global filter
-    logger.debug("{}", root)
+    #logger.debug("{}", root)
     froot = frozenset([root])
     old = estimateCardinality[froot]
     if fa != None:
+        #估算值对象更换为单表满足选择条件的数据集
         estimateCardinality[froot] = RelationData[root].shape[0] * filter[root]
     dfsCaculateJoin_2(froot, samples[froot], g, fa)
     estimateCardinality[froot] = old
@@ -56,7 +53,7 @@ def dfs(root, g, fa = None):
 
 def dfsSampleSingle(root, g,  fa = None):
     logger.debug("begin sample single for {}....", root)
-    global samples, estimateCardinality, tableBudget, f
+    global samples, estimateCardinality, tableBudget, filter
     #采样
     if fa == None:
         #没有父亲，是根节点，独立采样
@@ -72,8 +69,7 @@ def dfsSampleSingle(root, g,  fa = None):
         
         t2Data = RelationData[root]
         indexList = list()
-        #for _, val in samples[frozenset([fa])].iterrows():
-        #    indexList = indexList + t2Data[t2Data[f2] == val[f1]].index.values.tolist()
+        #获取能连接的数据并采样
         f1values = list(set( samples[frozenset([fa])][f1].tolist() ))
         indexList = t2Data[t2Data[f2].isin(f1values)].index.values.tolist()
         sampleSize = min(len(indexList), tableBudget[root])
@@ -83,14 +79,14 @@ def dfsSampleSingle(root, g,  fa = None):
     tmpDF = util.dropPrefix(samples[frozenset([root])])
     samples[frozenset([root])] = util.addPrefix(performSelect(g, root, tmpDF), root)
     sampleNum = samples[frozenset([root])].shape[0]
-    filter[root] = sampleNum / max(1,sampleSize)
+    filter[root] = max(1,sampleNum) / max(1,sampleSize)
     #estimateCardinality[frozenset([root])] = estimateSingle(RelationData[root].shape[0], sampleSize, sampleNum)
     if fa == None:
         estimateCardinality[frozenset([root])] = estimateSingle(RelationData[root].shape[0], sampleSize, sampleNum)
     else:
-        x = estimateCardinality[frozenset([fa])] * max(1, len(indexList)) / max(1,samples[frozenset([root])].shape[0])
+        #x = estimateCardinality[frozenset([fa])] * max(1, len(indexList)) / max(1,samples[frozenset([root])].shape[0])
+        #能和父亲采样样本集匹配并符合单表选择
         estimateCardinality[frozenset([root])] = estimateSingle(len(indexList), sampleSize, sampleNum)
-
 
     #logger.debug("sample {}, afterSlect {}", sampleSize, sampleNum)
     #dfs
@@ -210,32 +206,29 @@ def estimateJoin(aSamplesNum, aEstimate, bSamplesNum, bEstimate, outSamplesNum):
     return outSamplesNum/( (aSamplesNum/aEstimate) * (bSamplesNum/bEstimate) )
     
 if __name__ == "__main__":
-    #logger.remove()
-    logger.add("logs/4_19_treeIndexSample_log", level="INFO")
+    logger.remove()
+    logger.add("logs/4_20_treeIndexSample_log", level="INFO")
+    budget = 100000
     with open("data/sqls.pkl", 'rb') as f:
         sqlsDict = pickle.load(f)
     doneFlist = list() #os.listdir("./data/treeEstimateCardinality")
     for i in range(len(doneFlist)):
         doneFlist[i] = doneFlist[i].split('_')[0]
-    skipSqls = ["17a", "17b", "17c", "17d", "17e", "17f", "16a", "16b", "16c", "16d"]
     logger.info("-----------------begin--------------\n")
     for k, sql in sqlsDict.items():
-        if k in skipSqls or k in doneFlist:
-            continue
-        #k, sql = '23a', sqlsDict['23a']
         logger.info("begin caculate for {}", k)
-        budget = 100000
         estimateCardinality = TreeIndexSample(sql, budget)
         f = k + "_budget_" + str(budget) + ".treeEstimateCardinality"
         with open("data/treeEstimateCardinality/" + f, 'wb') as f:
             pickle.dump(estimateCardinality, f)
-        with open("data/realCardinality/" + k + ".realCardinality", 'rb') as f:
-            realCardinality = pickle.load(f)
-        ratioList = list()
-        for k in realCardinality.keys():
-            if k not in estimateCardinality.keys():
-                logger.warning("{} not in both", k)
-                continue
-            ratioList.append(round(math.log(max(1,estimateCardinality[k])/max(realCardinality[k], 1), 10), 2))
-        logger.info("ratio:{}\n", ratioList)
+            logger.info("save estimateCardinality for {}", k)
+        # with open("data/realCardinality/" + k + ".realCardinality", 'rb') as f:
+        #     realCardinality = pickle.load(f)
+        # ratioList = list()
+        # for k in realCardinality.keys():
+        #     if k not in estimateCardinality.keys():
+        #         logger.warning("{} not in both", k)
+        #         continue
+        #     ratioList.append(round(math.log(max(1,estimateCardinality[k])/max(realCardinality[k], 1), 10), 2))
+        # logger.info("ratio:{}\n", ratioList)
         
